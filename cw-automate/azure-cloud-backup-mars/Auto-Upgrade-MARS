@@ -1,0 +1,13 @@
+# Create tmp folder if it does not exist
+$Path=”c:\tmp"
+if (!(Test-Path $Path))
+{
+New-Item -itemType Directory -Path C:\ -Name "tmp"
+}
+
+# Download the installer
+$MarsAURL = 'https://aka.ms/Azurebackup_Agent'
+Invoke-WebRequest -Uri $MarsAURL -OutFile "C:\tmp\MARSAgentInstaller.EXE"
+
+# Run the installer silently
+Start-Process -FilePath "C:\tmp\MARSAgentInstaller.EXE" -ArgumentList "/q"
