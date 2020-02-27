@@ -1,9 +1,6 @@
 ﻿# Azure Cloud Backup (MARS) Event Logs
 
-# Credits for bits of code
-# Gavsto (https://www.gavsto.com) - Pass variables from Powershell to CW Automate
-
-#Level          Event                                EventID	 Event Log Message
+#Level          Symbol                                EventID	 EventMessage
 #----------------------------------------------------------------------------------------------------------
 #Error	        BACKUP_ERROR_STOP_EVENT               11	     The backup operation has completed with errors.
 #Error	        SCHEDULE_BACKUP_FAILED_EVENT	      18	     Scheduled backup failed in initialization phase
@@ -19,7 +16,7 @@ $scheduleBackupFailedId = 18
 $backupStartId = 1
 $backupSuccessStopId = 3
 $backupWarningStopId = 10
-$cbpVersionUpgraeNtfId = 14
+$cbpVersionUpgradeNtfId = 14
 $cbpStorageQuotaExceededNtfId = 16
 
 # Event IDs human readable error messages
@@ -28,7 +25,7 @@ $scheduleBackupFailedMessage = "Scheduled backup failed in initialization phase"
 $backupStartMessage = "The backup operation has started."
 $backupSuccessStopMessage = "The backup operation has completed."
 $backupWarningStopMessage = "The backup operation has completed with warnings."
-$cbpVersionUpgraeNtfMessage = "A newer version of Windows Azure Backup Agent is required"
+$cbpVersionUpgradeNtfMessage = "A newer version of Windows Azure Backup Agent is required"
 $cbpStorageQuotaExceededNtfMessage = "Storage quota limit is approaching 80 percent."
 
 # Counters for last 7 Days
@@ -37,7 +34,7 @@ $scheduleBackupFailedEventCountWeek = 0
 $backupStartEventCountWeek = 0
 $backupSuccessStopEventCountWeek = 0
 $backupWarningStopEventCountWeek = 0
-$cbpVersionUpgraeNtfEventCountWeek = 0
+$cbpVersionUpgradeNtfEventCountWeek = 0
 $cbpStorageQuotaExceededNtfEventCountWeek = 0
 
 # Counters for last 24 Hrs
@@ -46,7 +43,7 @@ $scheduleBackupFailedEventCountDay = 0
 $backupStartEventCountDay = 0
 $backupSuccessStopEventCountDay = 0
 $backupWarningStopEventCountDay = 0
-$cbpVersionUpgraeNtfEventCountDay = 0
+$cbpVersionUpgradeNtfEventCountDay = 0
 $cbpStorageQuotaExceededNtfEventCountDay = 0
 
 cls
@@ -66,7 +63,7 @@ $backupSuccessStopEventCountWeek = $log.Count
 $log = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$week } | Where-Object { $_.Id -eq '10' }
 $backupWarningStopEventCountWeek = $log.Count
 $log = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$week } | Where-Object { $_.Id -eq '14' }
-$cbpVersionUpgraeNtfEventCountWeek = $log.Count
+$cbpVersionUpgradeNtfEventCountWeek = $log.Count
 $log = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$week } | Where-Object { $_.Id -eq '16' }
 $cbpStorageQuotaExceededNtfEventCountWeek = $log.Count
 
@@ -82,25 +79,33 @@ $backupSuccessStopEventCountDay = $log.Count
 $log = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$yesterday } | Where-Object { $_.Id -eq '10' }
 $backupWarningStopEventCountDay = $log.Count
 $log = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$yesterday } | Where-Object { $_.Id -eq '14' }
-$cbpVersionUpgraeNtfEventCountDay = $log.Count
+$cbpVersionUpgradeNtfEventCountDay = $log.Count
 $log = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$yesterday } | Where-Object { $_.Id -eq '16' }
 $cbpStorageQuotaExceededNtfEventCountDay = $log.Count
 
+# Initialize object for response
+$obj = @{}
+
+# MARS Agent Update required
+if ($cbpVersionUpgradeNtfEventCountDay -gt 0) {
+    # Return an update response
+    $obj.updateStatus = "Update"
+}
+
+# Check if the last backup was successful or failed
 if ($backupSuccessStopEventCountDay -eq 0) {
     # No Backup was successful yet
     # Return a failure response
-    $obj = @{}
     $obj.lastBackupStatus = "Failed"
-    $obj.eventLogYesterday = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$yesterday } | Format-Table | Out-String
-    $Final = [string]::Join("|",($obj.GetEnumerator() | %{$_.Name + "=" + $_.Value}))
 } else {
     # Backup was successful
     # Return a success response
-    $obj = @{}
     $obj.lastBackupStatus = "Success"
-    $obj.eventLogYesterday = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$yesterday } | Format-Table | Out-String
-    $Final = [string]::Join("|",($obj.GetEnumerator() | %{$_.Name + "=" + $_.Value}))
 }
+
+# Prepare response object for CW Automate
+$obj.eventLogYesterday = Get-WinEvent -FilterHashtable @{ LogName='CloudBackup'; StartTime=$yesterday } | Format-Table | Out-String
+$Final = [string]::Join("|",($obj.GetEnumerator() | %{$_.Name + "=" + $_.Value}))
 
 Write-Output $Final
 
